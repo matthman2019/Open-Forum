@@ -11,6 +11,8 @@ PORT = 50000
 
 sayAllClientConnections = False
 
+messageID = -2**40
+
 
 messageList = []
 messageQueue = queue.Queue(maxsize=0)
