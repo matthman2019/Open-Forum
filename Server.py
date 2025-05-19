@@ -30,7 +30,7 @@ def write_messages_to_log():
                 messageToWrite = messageQueue.get()
                 file.write('{},{},{},{}\n'.format(
                     messageToWrite.text.replace(',', ';'),
-                    messageToWrite.time.replace(',', ';'),
+                    str(messageToWrite.time).replace(',', ';'),
                     messageToWrite.username.replace(',', ';'),
                     messageToWrite.password.replace(',', ';')
                     ))
