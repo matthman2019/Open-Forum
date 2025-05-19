@@ -50,7 +50,6 @@ def send_message(text, username='', password=''):
         connectionSocket.connect((IP, PORT))
         connectionSocket.send(Message(text, time.time(), username, password).to_json().encode())
         connectionSocket.close()
-
         connection_refused_error_message(False)
     except ConnectionRefusedError:
         connection_refused_error_message(True)
@@ -77,6 +76,8 @@ def recv_messages(maxMessages=-1):
         trueResponse = []
         for messageJSON in serverListResponse:
             trueResponse.append(Message.from_json(messageJSON))
+        
+
 
         # and we return it!
         connection_refused_error_message(False)
