@@ -36,7 +36,7 @@ def connection_refused_error_message(state:bool):
 messageList = []
 
 # this is the last time we refreshed.
-lastRefreshTime = time.time()
+lastRefreshTime = time.time_ns()
 
 def unpack_list(listToAppend:list, listToStrip:list):
     for i in listToStrip:
@@ -48,12 +48,12 @@ def send_message(text, username='', password=''):
     try:
         connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connectionSocket.connect((IP, PORT))
-        connectionSocket.send(Message(text, time.time(), username, password).to_json().encode())
+        connectionSocket.send(Message(text, time.time_ns(), username, password).to_json().encode())
         connectionSocket.close()
         connection_refused_error_message(False)
     except ConnectionRefusedError:
         connection_refused_error_message(True)
-        messageList.append(Message("Error: Connection refused! Check your internet connection. Message did not send.", time.time(), "ERROR", ''))
+        messageList.append(Message("Error: Connection refused! Check your internet connection. Message did not send.", time.time_ns(), "ERROR", ''))
     
 
 def recv_messages(maxMessages=-1):
@@ -63,7 +63,7 @@ def recv_messages(maxMessages=-1):
         connectionSocket.connect((IP, PORT))
         connectionSocket.send(RefreshRequest(lastRefreshTime, maxMessages).to_json().encode())
         # update our last refreshed time
-        lastRefreshTime = time.time()
+        lastRefreshTime = time.time_ns()
 
         # recieve server's response
         serverResponse = connectionSocket.recv(8192).decode()
@@ -96,7 +96,7 @@ def refresh_handler():
         messageList.sort(key=lambda x: x.time, reverse=True)
 
     # get previous messages 100 seconds prior (and a max of 20 messages) on startup
-    lastRefreshTime = time.time() - 100
+    lastRefreshTime = time.time_ns() - 100
     serverReturn = recv_messages(20)
     unpack_list(messageList, serverReturn)
     sort_message_list()
