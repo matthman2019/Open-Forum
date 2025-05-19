@@ -1,0 +1,83 @@
+Protocol
+
+Casing:
+All strings will use camel case in json objects.
+Classes will use Capitals in accordance with PEP 8.
+
+All things sent over socket will be json-like. Use the json module.
+
+
+Part 1: Messages
+Two things can happen here:
+1. The client sends a message to the server
+2. The client asks for messages from the server.
+
+The exchanges look like this
+
+1.
+The client sends a Message to the server
+
+That's it. There is no confirmation from the server that it arrived.
+(TCP does that anyways)
+
+2.
+The client sends RefreshRequest to the server.
+The server sends a JSON array of Messages to the client.
+
+
+
+
+CLIENT -- Message: these send text to replicate to other clients.
+
+{
+    "code":"message",
+    "text": ...
+    "time": ...
+    "username": ...
+    "password": ...
+}
+
+code: must be "message".
+text: the message text to send.
+time: the time that the message was sent. Preferably microseconds or nanoseconds to avoid missed messages.
+username: username of the person sending the message.
+password: password of the person sending the message. Added just in case, but probably won't be used.
+
+Messages should be sent using Message.to_json(). It's in the Classes.py module.
+
+If the server recieves a Message, it assumes that the client meant to send a message.
+The server will send Messages to a client only if the client requests them with RefreshRequest.
+
+
+
+
+CLIENT -- RefreshRequest: these request message refreshes. The client pings the server for a refresh.
+The client must ask for refreshes this manually!
+
+{
+    "code":"refreshRequest",
+    "time": ...
+    "maxMessages": ...
+}
+
+code: must be "refreshRequest"
+time: the time that the refresh was asked for. All messages past this time will be returned.
+maxMessages: the maximum amount of messages asked for. Set this to -1 to be indefinite.
+
+The client sends RefreshRequest to the server to ask for messages from other clients (this is a chat room).
+.
+
+
+
+
+
+Part 2: Logins
+These aren't implemented yet. I want this to be a free-for-all, but I may implement these.
+
+# NOT IMPLEMENTED YET!
+CLIENT -- AffirmLoginRequest: this gives the server a username and password and asks if they are a match.
+{
+    "code":"affirmLoginRequest"
+    "username": ...
+    "password": ...
+}
