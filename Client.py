@@ -8,7 +8,7 @@ import tkinter
 import tkinter.font as tkFont
 from tkinter import messagebox, Canvas, Text, Button
 
-IP = "127.0.0.1"
+IP = "192.168.0.215"
 PORT = 50000
 
 WIDTH = 800
