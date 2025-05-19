@@ -9,6 +9,8 @@ import queue
 IP = "192.168.0.215"
 PORT = 50000
 
+sayAllClientConnections = False
+
 
 messageList = []
 messageQueue = queue.Queue(maxsize=0)
@@ -26,7 +28,12 @@ def write_messages_to_log():
             # for everything in the queue, write it to csv
             while messageQueue.qsize() > 0:
                 messageToWrite = messageQueue.get()
-                file.write(f'{messageToWrite.text},{messageToWrite.time},{messageToWrite.username},{messageToWrite.password}\n')
+                file.write('{},{},{},{}\n'.format(
+                    messageToWrite.text.replace(',', ';'),
+                    messageToWrite.time.replace(',', ';'),
+                    messageToWrite.username.replace(',', ';'),
+                    messageToWrite.password.replace(',', ';')
+                    ))
 
         messageThreadEvent.clear()
 
@@ -86,10 +93,11 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
         for index in range(len(returnList)):
             returnList[index] = returnList[index].to_json()
 
-        returnList = json.dumps(returnList)
+        sendList = json.dumps(returnList)
 
-        print(f"{address} send RefreshRequest, responded successfully")
-        return returnList
+        if len(returnList) > 0:
+            print(f"Relayed {str(len(returnList))} Messages to {address}.")
+        return sendList
     
 
 
@@ -111,8 +119,6 @@ def manage_client(clientSocket, address):
 
     if stuffToSend is not None:
         clientSocket.send(str(stuffToSend).encode())
-
-    print('\n')
     
     clientSocket.close()
     return
@@ -138,5 +144,6 @@ while True:
     clientThread = threading.Thread(target=manage_client, args=(clientSocket, address))
     clientThread.start()
 
-    print(f"Recieved by {address}")
-
+    if sayAllClientConnections:
+        print('\n')
+        print(f"Recieved by {address}")
