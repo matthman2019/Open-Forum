@@ -17,6 +17,22 @@ HEIGHT = 800
 username = "matthman2019"
 password = "yomomma"
 
+connectionRefusedYet = False
+
+def connection_refused_error_message(state:bool):
+    global connectionRefusedYet
+
+    # we only do stuff if the new state is not equal to the old
+    if connectionRefusedYet != state:
+        # if we haven't been refused yet, throw an error!
+        if not connectionRefusedYet:
+            messagebox.showerror("ConnectionRefusedError", "The server could not be connected to! Check your internet connection.")
+            connectionRefusedYet = True
+
+        else:
+            connectionRefusedYet = True
+
+
 messageList = []
 
 # this is the last time we refreshed.
@@ -28,33 +44,46 @@ def unpack_list(listToAppend:list, listToStrip:list):
 
 
 def send_message(text, username='', password=''):
-    connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    connectionSocket.connect((IP, PORT))
-    connectionSocket.send(Message(text, time.time(), username, password).to_json().encode())
-    connectionSocket.close()
+    global messageList
+    try:
+        connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connectionSocket.connect((IP, PORT))
+        connectionSocket.send(Message(text, time.time(), username, password).to_json().encode())
+        connectionSocket.close()
+
+        connection_refused_error_message(False)
+    except ConnectionRefusedError:
+        connection_refused_error_message(True)
+        messageList.append(Message("Error: Connection refused! Check your internet connection. Message did not send.", time.time(), "ERROR", ''))
+    
 
 def recv_messages(maxMessages=-1):
-    global lastRefreshTime
-    connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    connectionSocket.connect((IP, PORT))
-    connectionSocket.send(RefreshRequest(lastRefreshTime, maxMessages).to_json().encode())
-    # update our last refreshed time
-    lastRefreshTime = time.time()
+    global lastRefreshTime, connectionRefusedYet
+    try:
+        connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connectionSocket.connect((IP, PORT))
+        connectionSocket.send(RefreshRequest(lastRefreshTime, maxMessages).to_json().encode())
+        # update our last refreshed time
+        lastRefreshTime = time.time()
 
-    # recieve server's response
-    serverResponse = connectionSocket.recv(8192).decode()
-    connectionSocket.close()
+        # recieve server's response
+        serverResponse = connectionSocket.recv(8192).decode()
+        connectionSocket.close()
 
-    # first, we make it a list with ast. (I could have used json here but oh well.)
-    serverListResponse = ast.literal_eval(serverResponse)
+        # first, we make it a list with ast. (I could have used json here but oh well.)
+        serverListResponse = ast.literal_eval(serverResponse)
 
-    # now, we decode every string in the list into a Message.
-    trueResponse = []
-    for messageJSON in serverListResponse:
-        trueResponse.append(Message.from_json(messageJSON))
+        # now, we decode every string in the list into a Message.
+        trueResponse = []
+        for messageJSON in serverListResponse:
+            trueResponse.append(Message.from_json(messageJSON))
 
-    # and we return it!
-    return trueResponse
+        # and we return it!
+        connection_refused_error_message(False)
+        return trueResponse
+    except ConnectionRefusedError:
+        connection_refused_error_message(True)
+        return []
 
 
 # this function handles receiving messages from the server every second or so.
@@ -117,7 +146,7 @@ def main():
 
     # textBox is where we put our text to send
     textBox = Text(root, height=2, width=textBoxWidth, font=mainFont)
-    textBox.place(anchor="sw", x=0, y=800)
+    textBox.place(anchor="sw", x=0, y=HEIGHT)
 
     def message_send():
         nonlocal textBox
@@ -129,23 +158,37 @@ def main():
     # sendButton is our button to send
     sendButton = Button(root, text="Send", width=sendButtonWidth, height=2, font=mainFont)
     sendButton.config(command=message_send, padx=0, pady=0)
-    sendButton.place(anchor="sw", x=textBoxWidth*characterLength, y=800)
+    sendButton.place(anchor="sw", x=textBoxWidth*characterLength, y=HEIGHT)
 
     # this handles window-size changing
     def change_window_size(event):
         global WIDTH, HEIGHT
-        WIDTH = event.x
-        HEIGHT = event.y
+        nonlocal textBoxWidth, sendButtonWidth, textBox, sendButton
+        WIDTH = event.width
+        HEIGHT = event.height
+        
+        textBoxWidth = floor(WIDTH * 0.875 / characterLength)
+        sendButtonWidth = ceil(WIDTH * 0.125 / characterLength)
+
+        textBox.config(width=textBoxWidth)
+        textBox.place_forget()
+        textBox.place(anchor="sw", x=0, y=HEIGHT)
+
+        sendButton.config(width=sendButtonWidth)
+        sendButton.place_forget()
+        sendButton.place(anchor="sw", x=textBoxWidth*characterLength, y=HEIGHT)
+
 
     canvas.bind("<Configure>", change_window_size)
 
     # now for receiving messages!
     def process_message_list():
-        global messageList, username
+        global messageList, username, WIDTH
         nonlocal canvas, root, textSize, mainFont, textBox
         
         canvas.delete("all")
-        drawY = 800 - (textBox.winfo_height())
+        drawY = HEIGHT - (textBox.winfo_height())
+        
         for message in messageList:
             assert isinstance(message, Message)
             # get the color
@@ -153,9 +196,12 @@ def main():
             if message.username == username:
                 messageColor = "blue"
 
+            if message.username == "ERROR":
+                messageColor = 'crimson'
+
             textToShow = f'{message.username}: {message.text}'
             
-            messageText = canvas.create_text(0, drawY, text=textToShow,  fill=messageColor, anchor="sw", font=mainFont)
+            messageText = canvas.create_text(0, drawY, text=textToShow,  fill=messageColor, anchor="sw", font=mainFont, width=WIDTH)
             x1, y1, x2, y2 = canvas.bbox(messageText)
             drawY -= y2-y1
 
