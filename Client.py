@@ -14,7 +14,7 @@ PORT = 50000
 WIDTH = 800
 HEIGHT = 800
 
-username = "Mommy Michael"
+username = "anonymous"
 password = "yomomma"
 userColor = "#0000FF"
 
