@@ -27,7 +27,7 @@ The server sends a JSON array of Messages to the client.
 
 
 
-CLIENT -- Message: these send text to replicate to other clients.
+CLIENT AND SERVER -- Message: these send text to replicate to other clients.
 
 {
     "code":"message",
@@ -35,13 +35,20 @@ CLIENT -- Message: these send text to replicate to other clients.
     "time": ...
     "username": ...
     "password": ...
+    "messageID": ...
 }
 
 code: must be "message".
 text: the message text to send.
-time: the time that the message was sent. Preferably microseconds or nanoseconds to avoid missed messages.
+time: the time that the message was sent. Use time.time_ns()!
 username: username of the person sending the message.
 password: password of the person sending the message. Added just in case, but probably won't be used.
+messageID is a unique identifier for a message. It is unique for every message and increases with time.
+
+*Important Note!* 
+messageID is assigned by the server. When a client sends a Message, it can set messageID to whatever it wants.
+When the server sends a Message to the client, the messageID is used as a point of reference 
+(of the last message recieved. MessageID is more reliable than time.)
 
 Messages should be sent using Message.to_json(). It's in the Classes.py module.
 
@@ -56,16 +63,22 @@ The client must ask for refreshes this manually!
 
 {
     "code":"refreshRequest",
+    "comparison": ...
     "time": ...
+    "messageID": ...
     "maxMessages": ...
 }
 
 code: must be "refreshRequest"
+comparison: either "time" or "messageID" to know which to compare for needed messages.
 time: the time that the refresh was asked for. All messages past this time will be returned.
+messageID: the last messageID that this client has seen.
 maxMessages: the maximum amount of messages asked for. Set this to -1 to be indefinite.
 
+NOTE: TIME MUST BE AN INTEGER OF NANOSECONDS. USE time.time_ns().
+NOTE: The server starts counting messageIDs at -2**40. The client needs to set its lastIDSeen to less than -2**40.
+
 The client sends RefreshRequest to the server to ask for messages from other clients (this is a chat room).
-.
 
 
 

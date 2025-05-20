@@ -11,7 +11,7 @@ PORT = 50000
 
 sayAllClientConnections = False
 
-messageID = -2**40
+messageIDAssign = -2**40
 
 
 messageList = []
@@ -30,11 +30,12 @@ def write_messages_to_log():
             # for everything in the queue, write it to csv
             while messageQueue.qsize() > 0:
                 messageToWrite = messageQueue.get()
-                file.write('{},{},{},{}\n'.format(
+                file.write('{},{},{},{},{}\n'.format(
                     messageToWrite.text.replace(',', ';'),
                     str(messageToWrite.time).replace(',', ';'),
                     messageToWrite.username.replace(',', ';'),
-                    messageToWrite.password.replace(',', ';')
+                    messageToWrite.password.replace(',', ';'),
+                    str(messageToWrite.messageID).replace(',', ';')
                     ))
 
         messageThreadEvent.clear()
@@ -42,7 +43,7 @@ def write_messages_to_log():
 
 # this handles a request sent by the client
 def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, address):
-    global messageList, messageQueue
+    global messageList, messageQueue, messageIDAssign
     try:
         requestType = decodedDict["code"]
     except KeyError:
@@ -52,6 +53,12 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
     # the client has sent us a message.
     if requestType == "message":
         requestMessage = Message.from_json(decodedString)
+
+        # set the messageID
+        requestMessage.messageID = messageIDAssign
+        messageIDAssign += 1
+
+        # put it where it belongs
         messageQueue.put(requestMessage)
         messageThreadEvent.set()
         messageList.append(requestMessage)
@@ -60,34 +67,63 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
 
         return None
 
-    # the client has asked for all messages since a certain time.
+    # the client has asked for all messages since a certain time or message
     elif requestType == "refreshRequest":
         requestObject = RefreshRequest.from_json(decodedString)
 
         maxMessages = requestObject.maxMessages
         requestedTime = requestObject.time
+        requestedID = requestObject.messageID
+        requestedComparison = requestObject.comparison
         returnList = []
         messagesSending = 0
 
-        # get messages since a certain time or until maxMessages is reached
-        for index in range(len(messageList)-1, -1, -1):
-            currentMessage = messageList[index]
+        if requestedComparison == 'time':
+            # get messages since a certain time or until maxMessages is reached
+            for index in range(len(messageList)-1, -1, -1):
+                currentMessage = messageList[index]
 
-            # break if maxMessages
-            if messagesSending == maxMessages:
-                break
-            # add a message if it's time is more recent than the time given
-            elif currentMessage.time > requestedTime:
-                
-                # hide the password
-                currentMessage.password = ''
+                # break if maxMessages
+                if messagesSending == maxMessages:
+                    break
+                # add a message if it's time is more recent than the time given
+                elif currentMessage.time > requestedTime:
+                    
+                    # hide the password
+                    currentMessage.password = ''
 
-                returnList.append(currentMessage)
-                messagesSending += 1
-            # if maxMessages hasn't been reached but time is less recent than time given, we break
-            else:
-                break
-        
+                    returnList.append(currentMessage)
+                    messagesSending += 1
+                # if maxMessages hasn't been reached but time is less recent than time given, we break
+                else:
+                    break
+
+
+        elif requestedComparison == "messageID":
+
+            # get messages since a certain id or until maxMessages is reached
+            for index in range(len(messageList)-1, -1, -1):
+                currentMessage = messageList[index]
+                print(currentMessage.messageID)
+                print(requestedID)
+                assert isinstance(currentMessage, Message)
+                # break if maxMessages
+                if messagesSending == maxMessages:
+                    break
+                # add a message if it's id is more recent than the id given
+                elif currentMessage.messageID > requestedID:
+                    
+                    # hide the password
+                    currentMessage.password = ''
+
+                    returnList.append(currentMessage)
+                    messagesSending += 1
+                # if maxMessages hasn't been reached but id is less recent than id given, we break
+                else:
+                    break
+
+
+        print("This code is running")
         # get the list in chronological order
         returnList.reverse()
 
@@ -101,7 +137,8 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
             print(f"Relayed {str(len(returnList))} Messages to {address}.")
         return sendList
     
-
+    else:
+        print(requestType)
 
     # add more protocol later!
 

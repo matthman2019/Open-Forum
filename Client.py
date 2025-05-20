@@ -36,7 +36,8 @@ def connection_refused_error_message(state:bool):
 messageList = []
 
 # this is the last time we refreshed.
-lastRefreshTime = time.time_ns()
+lastRefreshTime = time.time_ns() - 10000000
+lastMessageID = -2**60
 
 def unpack_list(listToAppend:list, listToStrip:list):
     for i in listToStrip:
@@ -48,7 +49,7 @@ def send_message(text, username='', password=''):
     try:
         connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connectionSocket.connect((IP, PORT))
-        connectionSocket.send(Message(text, time.time_ns(), username, password).to_json().encode())
+        connectionSocket.send(Message(text, time.time_ns(), username, password, 0).to_json().encode())
         connectionSocket.close()
         connection_refused_error_message(False)
     except ConnectionRefusedError:
@@ -56,12 +57,12 @@ def send_message(text, username='', password=''):
         messageList.append(Message("Error: Connection refused! Check your internet connection. Message did not send.", time.time_ns(), "ERROR", ''))
     
 
-def recv_messages(maxMessages=-1):
-    global lastRefreshTime, connectionRefusedYet
+def recv_messages(comparisonType:str, maxMessages=-1):
+    global lastRefreshTime, connectionRefusedYet, lastMessageID
     try:
         connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connectionSocket.connect((IP, PORT))
-        connectionSocket.send(RefreshRequest(lastRefreshTime, maxMessages).to_json().encode())
+        connectionSocket.send(RefreshRequest(comparisonType, lastRefreshTime, lastMessageID, maxMessages).to_json().encode())
         # update our last refreshed time
         lastRefreshTime = time.time_ns()
 
@@ -75,7 +76,11 @@ def recv_messages(maxMessages=-1):
         # now, we decode every string in the list into a Message.
         trueResponse = []
         for messageJSON in serverListResponse:
-            trueResponse.append(Message.from_json(messageJSON))
+            newMessage = Message.from_json(messageJSON)
+            trueResponse.append(newMessage)
+            if newMessage.messageID > lastMessageID:
+                lastMessageID = newMessage.messageID
+
         
 
 
@@ -93,17 +98,18 @@ def refresh_handler():
 
     def sort_message_list():
         global messageList
-        messageList.sort(key=lambda x: x.time, reverse=True)
+        messageList.sort(key=lambda x: x.messageID, reverse=True)
 
     # get previous messages 100 seconds prior (and a max of 20 messages) on startup
-    lastRefreshTime = time.time_ns() - 100
-    serverReturn = recv_messages(20)
+    lastRefreshTime = time.time_ns() - 10**9
+    serverReturn = recv_messages('time', 20)
     unpack_list(messageList, serverReturn)
     sort_message_list()
 
     while True:
+        print("Asked")
         time.sleep(1)
-        serverReturn = recv_messages(20)
+        serverReturn = recv_messages('messageID', 20)
         unpack_list(messageList, serverReturn)
         sort_message_list()
 
