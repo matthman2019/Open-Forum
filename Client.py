@@ -16,7 +16,7 @@ HEIGHT = 800
 
 username = "anonymous"
 password = "yomomma"
-userColor = "#0000FF"
+userColor:str = "#0000FF"
 
 connectionRefusedYet = False
 
@@ -137,16 +137,12 @@ def main():
     # for some reason, mainFont will be created before root exists and cause an error.
     # so, this is my bad solution.
 
-    done = False
-    while not done:
-        try:
-            # this is our main font
-            textSize = 12
-            mainFont = tkFont.Font(family="Consolas", size=textSize, weight="normal")
-            characterLength = mainFont.measure("m")
-            done = True
-        except RuntimeError:
-            pass
+    # this is our main font
+    textSize = 12
+    mainFont = tkFont.Font(family="Consolas", size=textSize, weight="normal")
+    characterLength = mainFont.measure("m")
+
+            
 
     menuTextSize = 10
     menuFont = tkFont.Font(family="Consolas", size=menuTextSize, weight="normal")
@@ -228,7 +224,9 @@ def main():
         def get_user_color():
             nonlocal userColorLabel, chosenUserColor
             chosenUserColor = colorchooser.askcolor(title="Choose your message color", initialcolor=userColor)[1]
-            userColorLabel.config(fg=userColor, text="This will be your message color")
+            if chosenUserColor is None:
+                chosenUserColor = userColor
+            userColorLabel.config(fg=chosenUserColor, text="This will be your message color")
         
         userColorButton = Button(menuRoot, text="Change Color", padx=0, pady=0, command=get_user_color)
         userColorButton.place(x=0, y=textSize*3+35, anchor='nw')
