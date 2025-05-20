@@ -6,7 +6,7 @@ from math import floor, ceil
 from Classes import *
 import tkinter
 import tkinter.font as tkFont
-from tkinter import messagebox, Canvas, Text, Button
+from tkinter import messagebox, Canvas, Text, Button, Entry, Label, colorchooser
 
 IP = "192.168.0.215"
 PORT = 50000
@@ -16,6 +16,7 @@ HEIGHT = 800
 
 username = "Mommy Michael"
 password = "yomomma"
+userColor = "#0000FF"
 
 connectionRefusedYet = False
 
@@ -130,11 +131,26 @@ def main():
     root = tkinter.Tk()
     root.geometry(f'{str(WIDTH)}x{str(HEIGHT)}')
     root.wm_resizable(True, True)
+    root.title("Open Forum")
 
-    # this is our main font
-    textSize = 12
-    mainFont = tkFont.Font(family="Consolas", size=textSize, weight="normal")
-    characterLength = mainFont.measure("m")
+    root.wait_visibility()
+    # for some reason, mainFont will be created before root exists and cause an error.
+    # so, this is my bad solution.
+
+    done = False
+    while not done:
+        try:
+            # this is our main font
+            textSize = 12
+            mainFont = tkFont.Font(family="Consolas", size=textSize, weight="normal")
+            characterLength = mainFont.measure("m")
+            done = True
+        except RuntimeError:
+            pass
+
+    menuTextSize = 10
+    menuFont = tkFont.Font(family="Consolas", size=menuTextSize, weight="normal")
+    menuCharacterLength = mainFont.measure("m")
 
     # finds the width of textBox and sendButton
     textBoxWidth = floor(700 / characterLength)
@@ -187,9 +203,57 @@ def main():
 
     canvas.bind("<Configure>", change_window_size)
 
+    # menu stuff
+    def open_menu():
+        global username, userColor
+        nonlocal root, menuTextSize, menuFont
+        chosenUserColor = userColor
+        while root is None:
+            pass
+
+        
+        menuRoot = tkinter.Toplevel(root)
+        menuRoot.geometry("400x400")
+
+        usernameLabel = Label(menuRoot, text="Username:", font=menuFont)
+        usernameLabel.place(x=0, y=0, anchor='nw')
+
+        usernameEntry = Entry(menuRoot, font=menuFont, width=floor(200/menuCharacterLength))
+        usernameEntry.insert("end", username)
+        usernameEntry.place(x=0, y=5+textSize, anchor='nw')
+
+        userColorLabel = Label(menuRoot, text="This is your message color", font=menuFont, fg=userColor)
+        userColorLabel.place(x=0, y=textSize*2+30)
+
+        def get_user_color():
+            nonlocal userColorLabel, chosenUserColor
+            chosenUserColor = colorchooser.askcolor(title="Choose your message color", initialcolor=userColor)[1]
+            userColorLabel.config(fg=userColor, text="This will be your message color")
+        
+        userColorButton = Button(menuRoot, text="Change Color", padx=0, pady=0, command=get_user_color)
+        userColorButton.place(x=0, y=textSize*3+35, anchor='nw')
+
+        cancelButton = Button(menuRoot, text="Cancel", command=lambda:menuRoot.withdraw())
+        cancelButton.place(x=50, y=390, anchor='sw')
+
+        def save_choices():
+            global userColor, username
+            nonlocal chosenUserColor, usernameEntry, menuRoot
+
+            username = usernameEntry.get()
+            userColor = chosenUserColor
+            menuRoot.withdraw()
+
+        saveButton = Button(menuRoot, text="Save and Exit", command=save_choices)
+        saveButton.place(x=390, y=390, anchor='se')
+        
+
+    menuButton = Button(root, text="Settings", font=mainFont, command=open_menu)
+    menuButton.place(anchor='nw', x=0, y=0)
+
     # now for receiving messages!
     def process_message_list():
-        global messageList, username, WIDTH
+        global messageList, username, WIDTH, userColor
         nonlocal canvas, root, textSize, mainFont, textBox
 
         canvas.delete("all")
@@ -200,7 +264,7 @@ def main():
             # get the color
             messageColor = "black"
             if message.username == username:
-                messageColor = "blue"
+                messageColor = userColor
 
             if message.username == "ERROR":
                 messageColor = 'crimson'
