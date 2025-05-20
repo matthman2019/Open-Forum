@@ -107,7 +107,6 @@ def refresh_handler():
     sort_message_list()
 
     while True:
-        print("Asked")
         time.sleep(1)
         serverReturn = recv_messages('messageID', 20)
         unpack_list(messageList, serverReturn)

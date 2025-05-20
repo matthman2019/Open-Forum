@@ -104,8 +104,6 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
             # get messages since a certain id or until maxMessages is reached
             for index in range(len(messageList)-1, -1, -1):
                 currentMessage = messageList[index]
-                print(currentMessage.messageID)
-                print(requestedID)
                 assert isinstance(currentMessage, Message)
                 # break if maxMessages
                 if messagesSending == maxMessages:
@@ -123,7 +121,6 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
                     break
 
 
-        print("This code is running")
         # get the list in chronological order
         returnList.reverse()
 
