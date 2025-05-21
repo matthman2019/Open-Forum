@@ -11,6 +11,7 @@ from websockets.sync.client import connect
 
 IP = "127.0.0.1"
 PORT = 50000
+URI = "ws://openforum.fireblade.dev"
 
 WIDTH = 800
 HEIGHT = 800
@@ -58,11 +59,18 @@ def send_TCP_message(text, username='', password=''):
         connection_refused_error_message(True)
         messageList.append(Message("Error: Connection refused! Check your internet connection. Message did not send.", time.time_ns(), "ERROR", ''))
 
+'''
+connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+print(socket.gethostbyname("openforum.fireblade.dev"))
+connectionSocket.connect((socket.gethostbyname("openforum.fireblade.dev"), 80))
+connectionSocket.send("HTTP/1.1 GET / ".encode())
+connectionSocket.close()
+'''
 
 def send_WS_message(text, username='', password=''):
-    global messageList
+    global messageList, URI
     try:
-        with connect("ws://localhost:50000") as websocket:
+        with connect(URI) as websocket:
             websocket.send(Message(text, time.time_ns(), username, password, 0).to_json())
             websocket.close()
         connection_refused_error_message(False)
@@ -109,9 +117,9 @@ def recv_TCP_messages(comparisonType:str, maxMessages=-1):
 
 
 def recv_WS_messages(comparisonType:str, maxMessages=-1):
-    global lastRefreshTime, connectionRefusedYet, lastMessageID
+    global lastRefreshTime, connectionRefusedYet, lastMessageID, URI
     try:
-        with connect("ws://localhost:50000") as websocket:
+        with connect(URI) as websocket:
             websocket.send(RefreshRequest(comparisonType, lastRefreshTime, lastMessageID, maxMessages).to_json())
             # update last refreshed time
             lastRefreshTime = time.time_ns()
