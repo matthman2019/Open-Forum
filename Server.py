@@ -6,7 +6,7 @@ import json
 from Classes import *
 import queue
 
-IP = "192.168.0.215"
+IP = "127.0.0.1"
 PORT = 50000
 
 sayAllClientConnections = False
