@@ -7,6 +7,7 @@ from Classes import *
 import tkinter
 import tkinter.font as tkFont
 from tkinter import messagebox, Canvas, Text, Button, Entry, Label, colorchooser
+from websockets.sync.client import connect
 
 IP = "127.0.0.1"
 PORT = 50000
@@ -45,7 +46,7 @@ def unpack_list(listToAppend:list, listToStrip:list):
         listToAppend.append(i)
 
 
-def send_message(text, username='', password=''):
+def send_TCP_message(text, username='', password=''):
     global messageList
     try:
         connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -56,9 +57,23 @@ def send_message(text, username='', password=''):
     except ConnectionRefusedError:
         connection_refused_error_message(True)
         messageList.append(Message("Error: Connection refused! Check your internet connection. Message did not send.", time.time_ns(), "ERROR", ''))
-    
 
-def recv_messages(comparisonType:str, maxMessages=-1):
+
+def send_WS_message(text, username='', password=''):
+    global messageList
+    try:
+        with connect("ws://localhost:50000") as websocket:
+            websocket.send(Message(text, time.time_ns(), username, password, 0).to_json())
+            websocket.close()
+        connection_refused_error_message(False)
+
+    except ConnectionRefusedError:
+        connection_refused_error_message(True)
+        messageList.append(Message("Error: Connection refused! Check your internet connection. Message did not send.", time.time_ns(), "ERROR", ''))
+
+
+
+def recv_TCP_messages(comparisonType:str, maxMessages=-1):
     global lastRefreshTime, connectionRefusedYet, lastMessageID
     try:
         connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -93,6 +108,38 @@ def recv_messages(comparisonType:str, maxMessages=-1):
         return []
 
 
+def recv_WS_messages(comparisonType:str, maxMessages=-1):
+    global lastRefreshTime, connectionRefusedYet, lastMessageID
+    try:
+        with connect("ws://localhost:50000") as websocket:
+            websocket.send(RefreshRequest(comparisonType, lastRefreshTime, lastMessageID, maxMessages).to_json())
+            # update last refreshed time
+            lastRefreshTime = time.time_ns()
+
+            # recieve server's response
+            serverResponse = websocket.recv()
+            websocket.close()
+
+        # first, we make it a list with ast. (I could have used json here but oh well.)
+        serverListResponse = ast.literal_eval(serverResponse)
+        
+        # now, we decode every string in the list into a Message.
+        trueResponse = []
+        for messageJSON in serverListResponse:
+            newMessage = Message.from_json(messageJSON)
+            trueResponse.append(newMessage)
+            if newMessage.messageID > lastMessageID:
+                lastMessageID = newMessage.messageID
+
+        # and we return it!
+        connection_refused_error_message(False)
+        return trueResponse
+
+    except ConnectionRefusedError:
+        connection_refused_error_message(True)
+        return []
+
+
 # this function handles receiving messages from the server every second or so.
 def refresh_handler():
     global messageList, lastRefreshTime
@@ -103,13 +150,13 @@ def refresh_handler():
 
     # get previous messages 100 seconds prior (and a max of 20 messages) on startup
     lastRefreshTime = time.time_ns() - 10**9
-    serverReturn = recv_messages('time', 20)
+    serverReturn = recv_WS_messages('time', 20)
     unpack_list(messageList, serverReturn)
     sort_message_list()
 
     while True:
         time.sleep(1)
-        serverReturn = recv_messages('messageID', 20)
+        serverReturn = recv_WS_messages('messageID', 20)
         unpack_list(messageList, serverReturn)
         sort_message_list()
 
@@ -134,10 +181,9 @@ def main():
     root.title("Open Forum")
 
     root.wait_visibility()
-    # for some reason, mainFont will be created before root exists and cause an error.
-    # so, this is my bad solution.
+    # I don't have any solution
 
-    # this is our main font
+
     textSize = 12
     mainFont = tkFont.Font(family="Consolas", size=textSize, weight="normal")
     characterLength = mainFont.measure("m")
@@ -171,7 +217,7 @@ def main():
         global username, password
         messageText = textBox.get("1.0", "end-1c").strip('\n')
         textBox.delete("0.0", "end")
-        send_message(messageText, username, password)
+        send_WS_message(messageText, username, password)
 
     # sendButton is our button to send
     sendButton = Button(root, text="Send", width=sendButtonWidth, height=2, font=mainFont)

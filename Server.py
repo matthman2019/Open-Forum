@@ -5,6 +5,7 @@ import socket
 import json
 from Classes import *
 import queue
+from websockets.sync.server import serve, ServerConnection
 
 IP = "127.0.0.1"
 PORT = 50000
@@ -159,27 +160,53 @@ def manage_client(clientSocket, address):
     clientSocket.close()
     return
 
-        
+def manage_websocket_client(websocket:ServerConnection):
+    for clientRequestJSON in websocket:
+        try:
+            clientRequest = json.loads(clientRequestJSON)
+        except:
+            print("Client sent a bad request! Could not be JSON decoded! Ignoring message.")
+
+        stuffToSendBack = handle_request_decoded(clientRequest, clientRequestJSON, websocket.local_address[0])
+       
+        if stuffToSendBack is not None:
+            websocket.send(stuffToSendBack)
+
+
+
+            
+
+ 
+'''
 # server socket setup
 serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 serverSocket.bind((IP, PORT))
 serverSocket.listen()
+'''
 
-print("Server is up and running!")
-
+# keep this. this is good
 # log.csv writer setup
 logThread = threading.Thread(target=write_messages_to_log)
 logThread.start()
 
 print("Messages are being logged!")
 
+with serve(manage_websocket_client, IP, PORT) as server:
+    print("Server up!")
+    server.serve_forever()
 
+
+
+
+'''
 while True:
     clientSocket, address = serverSocket.accept()
     clientThread = threading.Thread(target=manage_client, args=(clientSocket, address))
     clientThread.start()
 
     if sayAllClientConnections:
-        print('\n')
+        print("\n")
         print(f"Recieved by {address}")
+
+'''
