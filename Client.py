@@ -71,11 +71,26 @@ def recv_messages(comparisonType:str, maxMessages=-1):
         lastRefreshTime = time.time_ns()
 
         # recieve server's response
-        serverResponse = connectionSocket.recv(2**32).decode()
+        # basically we have to keep recieving until the square bracket ends.
+        # the entire server transmission is inside a bracket [] (It's JSON)
+        # so when we can actually decode it (with ast), we know the transmission is complete.
+        doneRecieving = False
+        serverResponse = ''
+        serverListResponse = []
+        while not doneRecieving:
+            serverResponse += connectionSocket.recv(2**32).decode()
+            # if we can evaluate it with ast, we're done
+            try:
+                serverListResponse = ast.literal_eval(serverResponse)
+                doneRecieving = True
+                break
+            except:
+                # if we can't (List is unclosed), we keep receiving.
+                doneRecieving = False
+
+        
         connectionSocket.close()
 
-        # first, we make it a list with ast. (I could have used json here but oh well.)
-        serverListResponse = ast.literal_eval(serverResponse)
 
         # now, we decode every string in the list into a Message.
         trueResponse = []
