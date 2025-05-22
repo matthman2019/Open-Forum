@@ -1,2 +1,7 @@
 __pycache__
 log.csv
+.venv
+Client.spec
+OpenForumClient.spec
+build
+dist
