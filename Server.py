@@ -5,9 +5,13 @@ import socket
 import json
 from Classes import *
 import queue
+import tkinter as tk
 
 IP = "127.0.0.1"
 PORT = 50000
+
+W_HEIGHT = 400
+W_WIDTH = 600
 
 sayAllClientConnections = False
 
@@ -39,6 +43,17 @@ def write_messages_to_log():
                     ))
 
         messageThreadEvent.clear()
+
+
+def send_server_event(text:str):
+    global messageIDAssign
+    messageToSend = Message(text, time.time_ns(), "SERVER", '', messageIDAssign)
+    messageIDAssign += 1
+
+    # put it where it belongs
+    messageQueue.put(messageToSend)
+    messageThreadEvent.set()
+    messageList.append(messageToSend)
 
 
 # this handles a request sent by the client
@@ -164,12 +179,37 @@ def manage_client(clientSocket, address):
     clientSocket.close()
     return
 
+# manages all sockets. Meant to be run in a thread.
+def manage_sockets():
+
+    # server socket setup
+    serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    serverSocket.bind((IP, PORT))
+    serverSocket.listen()
+
+    while True:
+        clientSocket, address = serverSocket.accept()
+        clientThread = threading.Thread(target=manage_client, args=(clientSocket, address))
+        clientThread.start()
+
+        if sayAllClientConnections:
+            print('\n')
+            print(f"Recieved by {address}")
+
+# manages tkinter. Not meant to be run in a thread!
+def manage_tkinter():
+    global messageList, W_WIDTH, W_HEIGHT
+    root = tk.Tk()
+    root.geometry("{}x{}".format(str(W_WIDTH), str(W_HEIGHT)))
+    root.title("OpenForum Server")
+
+    root.mainloop()
+
+
         
-# server socket setup
-serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-serverSocket.bind((IP, PORT))
-serverSocket.listen()
+socketThread = threading.Thread(target=manage_sockets)
+socketThread.start()
 
 print("Server is up and running!")
 
@@ -180,11 +220,6 @@ logThread.start()
 print("Messages are being logged!")
 
 
-while True:
-    clientSocket, address = serverSocket.accept()
-    clientThread = threading.Thread(target=manage_client, args=(clientSocket, address))
-    clientThread.start()
 
-    if sayAllClientConnections:
-        print('\n')
-        print(f"Recieved by {address}")
+print("Starting Tk!")
+manage_tkinter()

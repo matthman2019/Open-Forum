@@ -8,11 +8,16 @@ import tkinter
 import tkinter.font as tkFont
 from tkinter import messagebox, Canvas, Text, Button, Entry, Label, colorchooser
 
-IP = "127.0.0.1"
-PORT = 50000
+worldwideMode = False
 
-IP = socket.gethostbyname("say-request.gl.at.ply.gg")
-PORT = 48826
+if worldwideMode:
+    IP = socket.gethostbyname("say-request.gl.at.ply.gg")
+    PORT = 48826
+else:
+    IP = "127.0.0.1"
+    PORT = 50000
+
+
 
 WIDTH = 800
 HEIGHT = 800
