@@ -71,7 +71,7 @@ def recv_messages(comparisonType:str, maxMessages=-1):
         lastRefreshTime = time.time_ns()
 
         # recieve server's response
-        serverResponse = connectionSocket.recv(8192).decode()
+        serverResponse = connectionSocket.recv(2**32).decode()
         connectionSocket.close()
 
         # first, we make it a list with ast. (I could have used json here but oh well.)
