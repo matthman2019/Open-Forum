@@ -142,7 +142,11 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
 
 # this runs in a thread and manages a socket from the client.
 def manage_client(clientSocket, address):
-    clientRequestJSON = clientSocket.recv(20000).decode()
+    try:
+        clientRequestJSON = clientSocket.recv(20000).decode()
+    except:
+        print("Client sent a bad request! Could not be decoded in UTF-8.")
+        return
 
     # make sure that the client request is JSON-like and has a code attribute
     try:
