@@ -153,6 +153,7 @@ def manage_client(clientSocket, address):
         clientRequest = json.loads(clientRequestJSON)
     except:
         print("Client sent a bad request! Could not be JSON decoded! Ignoring message.")
+        print(clientRequestJSON)
         return
 
     stuffToSend = handle_request_decoded(clientRequest, clientRequestJSON, address)
