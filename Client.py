@@ -11,8 +11,11 @@ from tkinter import messagebox, Canvas, Text, Button, Entry, Label, colorchooser
 IP = "127.0.0.1"
 PORT = 50000
 
+# use this in case the server is running through a tunnel. For instance, this was for a TCP tunnel.
+'''
 IP = socket.gethostbyname("say-request.gl.at.ply.gg")
 PORT = 48826
+'''
 
 WIDTH = 800
 HEIGHT = 800
