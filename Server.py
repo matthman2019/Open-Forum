@@ -7,7 +7,8 @@ from Classes import *
 import queue
 import ttkbootstrap as ttk
 from ttkbootstrap.scrolled import ScrolledText
-import tkinter
+from ttkbootstrap.constants import *
+import os
 
 IP = "127.0.0.1"
 PORT = 50000
@@ -18,6 +19,10 @@ W_WIDTH = 600
 sayAllClientConnections = False
 
 messageIDAssign = -2**40
+
+currentServerLogList = []
+currentServerLogString = ""
+serverLogWidget = None
 
 
 messageList = []
@@ -32,7 +37,7 @@ def write_messages_to_log():
         messageThreadEvent.wait()
 
         # write into the log
-        with open("messageLog.csv", 'a') as file:
+        with open("Logs/messageLog.csv", 'a') as file:
             # for everything in the queue, write it to csv
             while messageQueue.qsize() > 0:
                 messageToWrite = messageQueue.get()
@@ -64,7 +69,7 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
     try:
         requestType = decodedDict["code"]
     except KeyError:
-        print("Bad request from client! No code attribute. Ignoring message.")
+        log_message("Bad request from client! No code attribute. Ignoring message.", 3)
         return "NoCodeError"
 
     # the client has sent us a message.
@@ -80,7 +85,7 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
         messageThreadEvent.set()
         messageList.append(requestMessage)
         
-        print(f"Message recieved and processed by {address}")
+        log_message(f"Message recieved and processed by {address}", 2)
 
         return None
 
@@ -148,11 +153,11 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
         sendList = json.dumps(returnList)
 
         if len(returnList) > 0:
-            print(f"Relayed {str(len(returnList))} Messages to {address}.")
+            log_message(f"Relayed {str(len(returnList))} Messages to {address}.", 2)
         return sendList
     
     else:
-        print(requestType)
+        log_message(f"Request type not identified! Request type is {requestType}.", 3)
 
     # add more protocol later!
 
@@ -162,14 +167,14 @@ def manage_client(clientSocket, address):
     try:
         clientRequestJSON = clientSocket.recv(20000).decode()
     except:
-        print("Client sent a bad request! Could not be decoded in UTF-8.")
+        log_message("Client sent a bad request! Could not be decoded in UTF-8.", 2)
         return
 
     # make sure that the client request is JSON-like and has a code attribute
     try:
         clientRequest = json.loads(clientRequestJSON)
     except:
-        print("Client sent a bad request! Could not be JSON decoded! Ignoring message.")
+        log_message("Client sent a bad request! Could not be JSON decoded! Ignoring message.", 2)
         print(clientRequestJSON)
         return
 
@@ -196,12 +201,9 @@ def manage_sockets():
         clientThread.start()
 
         if sayAllClientConnections:
-            print('\n')
-            print(f"Recieved by {address}")
+            log_message('\n', 1)
+            log_message(f"Recieved by {address}", 2)
 
-currentServerLogList = []
-currentServerLogString = ""
-serverLogWidget = None
 
 # yes, I could have used the logging module.
 # no, I wanted to do it myself.
@@ -231,11 +233,8 @@ def log_message(message:str, priority:int=1):
     if serverLogWidget is not None:
         serverLogWidget.insert('end', message+'\n')
 
-    with open("ServerLog.txt", 'a') as file:
+    with open("Logs/ServerLog.txt", 'a') as file:
         file.write(message + '\n')
-
-
-    
 
 
 # manages tkinter. Not meant to be run in a thread!
@@ -245,36 +244,58 @@ def manage_tkinter():
     root.geometry("{}x{}".format(str(W_WIDTH), str(W_HEIGHT)))
     root.title("OpenForum Server")
 
-    serverLogText = ScrolledText(root, autohide=True)
+    serverLogText = ScrolledText(root, autohide=True, width=10, height=16)
     serverLogText.insert("end", "")
     serverLogWidget = serverLogText
-    serverLogText.grid(row=0, column=0, sticky="NSEW")
+    serverLogText.grid(row=0, column=0, rowspan=5, sticky="nsew")
 
-    index = 0
+    serverMessageLabel = ttk.Label(root, text="Send a Server-Wide Message")
+    serverMessageLabel.grid(row=0, column=1, sticky="nsew")
 
-    def logLoop():
-        nonlocal index, root
-        index += 1
-        log_message("Test " + str(index) + "!", 1)
-        root.after(1000, logLoop)
+    serverMessageTextFrame = ttk.Frame(root)
+    serverMessageTextFrame.grid(row=1, column=1, columnspan=2, sticky="nsew")
 
-    root.after(1000, logLoop)
+    serverMessageEntry = ttk.Text(serverMessageTextFrame, width=1, height=1)
+    serverMessageEntry.pack(fill='both', expand=True)
+
+    def send_server_message_button():
+        nonlocal root, serverMessageEntry
+        textToSend = serverMessageEntry.get("1.0", "end-1c").strip('\n').replace(',', ';')
+        serverMessageEntry.delete("0.0", "end")
+        send_server_event(textToSend)
+        log_message(f'Message send: "{textToSend}"', 2)
+
+    serverMessageButton = ttk.Button(root, text="Send", command=send_server_message_button)
+    serverMessageButton.grid(row=0, column=2, sticky="ew")
+    
+    root.columnconfigure(0, weight=3)
+    root.columnconfigure(1, weight=1)
+    root.columnconfigure(2, weight=1)
+    
+
     root.mainloop()
 
 
+
+# make sure we have a folder to log to
+try:
+    fileText = os.makedirs(Path(__file__).parent / "Logs")
+    log_message("Logs folder created!", 2)
+except FileExistsError:
+    log_message("Logs folder found, using as a target for server logs.", 2)
         
 socketThread = threading.Thread(target=manage_sockets)
 socketThread.start()
 
-print("Server is up and running!")
+log_message("Server is up and running!", 2)
 
 # log.csv writer setup
 logThread = threading.Thread(target=write_messages_to_log)
 logThread.start()
 
-print("Messages are being logged!")
+log_message("Messages are being logged!", 2)
 
 
 
-print("Starting Tk!")
+log_message("Starting Tk!", 2)
 manage_tkinter()

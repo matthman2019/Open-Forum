@@ -13,6 +13,9 @@ import ttkbootstrap as ttk
 
 worldwideMode = False
 
+# This is a global. KEEP IT TRUE! Your application will not work if it starts as false.
+mainThreadRunning = True
+
 if worldwideMode:
     IP = socket.gethostbyname("say-request.gl.at.ply.gg")
     PORT = 48826
@@ -30,19 +33,12 @@ password = "yomomma"
 userColor:str = "#0000FF"
 
 connectionRefusedYet = False
+oldConnectionRefusedYet = False
 
 def connection_refused_error_message(state:bool):
     global connectionRefusedYet
 
-    # we only do stuff if the new state is not equal to the old
-    if connectionRefusedYet != state:
-        # if we haven't been refused yet, throw an error!
-        if not connectionRefusedYet:
-            messagebox.show_error(title="ConnectionRefusedError", message="The server could not be connected to! Check your internet connection.")
-            connectionRefusedYet = True
-
-        else:
-            connectionRefusedYet = True
+    connectionRefusedYet = state
 
 
 messageList = []
@@ -66,11 +62,13 @@ def send_message(text, username='', password=''):
         connection_refused_error_message(False)
     except ConnectionRefusedError:
         connection_refused_error_message(True)
-        messageList.append(Message("Error: Connection refused! Check your internet connection. Message did not send.", time.time_ns(), "ERROR", ''))
+        messageList.append(Message("Connection refused! Check your internet connection. Message did not send.", time.time_ns(), "ERROR", ''))
     
 
 def recv_messages(comparisonType:str, maxMessages=-1):
-    global lastRefreshTime, connectionRefusedYet, lastMessageID
+    global lastRefreshTime, connectionRefusedYet, lastMessageID, mainThreadRunning
+    if not mainThreadRunning:
+        quit()
     try:
         connectionSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connectionSocket.connect((IP, PORT))
@@ -139,11 +137,11 @@ def refresh_handler():
         unpack_list(messageList, serverReturn)
         sort_message_list()
 
-'''
+
 # start the refresh handler
-refreshThread = threading.Thread(target=refresh_handler, daemon=True)
+refreshThread = threading.Thread(target=refresh_handler)
 refreshThread.start()
-'''
+
 
 
 #send_message("ayo how you doin", "matthman2019", "yomomma")
@@ -162,8 +160,10 @@ def main():
 
 
     def ask_exit():
+        global mainThreadRunning
         if messagebox.okcancel(title="Quit", message="Do you want to quit?", alert=True):
             root.destroy()
+            mainThreadRunning = False
 
     root.protocol("WM_DELETE_WINDOW", ask_exit)
 
@@ -269,11 +269,11 @@ def main():
 
     # now for receiving messages!
     def process_message_list():
-        global messageList, username, WIDTH, userColor
+        global messageList, username, WIDTH, userColor, connectionRefusedYet, oldConnectionRefusedYet
         nonlocal canvas, root, textBox
 
         canvas.delete("all")
-        drawY = HEIGHT
+        drawY = canvas.winfo_height()
         
         for message in messageList:
             assert isinstance(message, Message)
@@ -290,6 +290,21 @@ def main():
             messageText = canvas.create_text(0, drawY, text=textToShow,  fill=messageColor, anchor="sw", width=WIDTH)
             x1, y1, x2, y2 = canvas.bbox(messageText)
             drawY -= y2-y1
+
+
+        
+        # interestingly, the messagebox that pops up from "connectionRefused" needs to be run here (so it stays in the main thread)
+        # we only do stuff if the new state is not equal to the old
+        if connectionRefusedYet != oldConnectionRefusedYet:
+            # if we haven't been refused yet, throw an error!
+            if connectionRefusedYet is True:
+                messagebox.show_error(title="ConnectionRefusedError", message="The server could not be connected to! This is probably a server issue. " \
+                "Please check your internet connection first, then alert matthman2019!")
+                print("Connection was refused!")
+
+            else:
+                pass
+            oldConnectionRefusedYet = connectionRefusedYet
 
         root.after(1000, process_message_list)
             
