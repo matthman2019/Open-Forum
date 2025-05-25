@@ -11,7 +11,7 @@ from ttkbootstrap.dialogs.colorchooser import ColorChooserDialog
 from ttkbootstrap.dialogs import Messagebox as messagebox
 import ttkbootstrap as ttk
 
-worldwideMode = False
+worldwideMode = True
 
 # This is a global. KEEP IT TRUE! Your application will not work if it starts as false.
 mainThreadRunning = True

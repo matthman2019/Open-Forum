@@ -1,0 +1,7 @@
+altgraph==0.17.4
+packaging==25.0
+pillow==10.4.0
+pyinstaller==6.13.0
+pyinstaller-hooks-contrib==2025.4
+ttkbootstrap==1.13.8
+websockets==15.0.1
