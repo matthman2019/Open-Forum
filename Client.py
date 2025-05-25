@@ -6,7 +6,10 @@ from math import floor, ceil
 from Classes import *
 import tkinter
 import tkinter.font as tkFont
-from tkinter import messagebox, Canvas, Text, Button, Entry, Label, colorchooser
+from ttkbootstrap import Canvas, Text, Button, Entry, Label, Style, Frame
+from ttkbootstrap.dialogs.colorchooser import ColorChooserDialog
+from ttkbootstrap.dialogs import Messagebox as messagebox
+import ttkbootstrap as ttk
 
 worldwideMode = False
 
@@ -35,7 +38,7 @@ def connection_refused_error_message(state:bool):
     if connectionRefusedYet != state:
         # if we haven't been refused yet, throw an error!
         if not connectionRefusedYet:
-            messagebox.showerror("ConnectionRefusedError", "The server could not be connected to! Check your internet connection.")
+            messagebox.show_error(title="ConnectionRefusedError", message="The server could not be connected to! Check your internet connection.")
             connectionRefusedYet = True
 
         else:
@@ -136,11 +139,11 @@ def refresh_handler():
         unpack_list(messageList, serverReturn)
         sort_message_list()
 
-
+'''
 # start the refresh handler
 refreshThread = threading.Thread(target=refresh_handler, daemon=True)
 refreshThread.start()
-
+'''
 
 
 #send_message("ayo how you doin", "matthman2019", "yomomma")
@@ -151,43 +154,22 @@ def main():
     # now for the tkinter window (it must run in the main thread)
 
     # root is the window
-    root = tkinter.Tk()
+    root = ttk.Window(title="OpenForum Client", themename="cosmo")
     root.geometry(f'{str(WIDTH)}x{str(HEIGHT)}')
     root.wm_resizable(True, True)
     root.title("Open Forum")
 
-    root.wait_visibility()
-    # for some reason, mainFont will be created before root exists and cause an error.
-    # so, this is my bad solution.
 
-    # this is our main font
-    textSize = 12
-    mainFont = tkFont.Font(family="Consolas", size=textSize, weight="normal")
-    characterLength = mainFont.measure("m")
-
-            
-
-    menuTextSize = 10
-    menuFont = tkFont.Font(family="Consolas", size=menuTextSize, weight="normal")
-    menuCharacterLength = mainFont.measure("m")
-
-    # finds the width of textBox and sendButton
-    textBoxWidth = floor(700 / characterLength)
-    sendButtonWidth = ceil(100 / characterLength)
 
     def ask_exit():
-        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        if messagebox.okcancel(title="Quit", message="Do you want to quit?", alert=True):
             root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", ask_exit)
 
     # canvas is where we draw the messages
-    canvas = Canvas(root, width=WIDTH, height=HEIGHT, bg="white") 
-    canvas.pack(fill="both", expand=True)
-
-    # textBox is where we put our text to send
-    textBox = Text(root, height=2, width=textBoxWidth, font=mainFont)
-    textBox.place(anchor="sw", x=0, y=HEIGHT)
+    canvas = Canvas(root, width=WIDTH, height=HEIGHT*0.9) 
+    canvas.grid(sticky=('n', 's', 'e', 'w'), row=0, column=0, columnspan=2)
 
     def message_send():
         nonlocal textBox
@@ -197,27 +179,37 @@ def main():
         send_message(messageText, username, password)
 
     # sendButton is our button to send
-    sendButton = Button(root, text="Send", width=sendButtonWidth, height=2, font=mainFont)
-    sendButton.config(command=message_send, padx=0, pady=0)
-    sendButton.place(anchor="sw", x=textBoxWidth*characterLength, y=HEIGHT)
+    sendButton = Button(root, text="Send", width=6)
+    sendButton.config(command=message_send)
+    sendButton.grid(row=1, column=1, sticky="nsew")
+
+    # sets the spacing
+    root.columnconfigure(1, weight=2)
+    root.columnconfigure(0, weight=8)
+    root.rowconfigure(0, weight=9)
+    root.rowconfigure(1, weight=1)
+
+
+
+    # this is to make textBox not take up the entire screen
+    textBoxFrame = Frame(root, width=WIDTH*0.8, height=HEIGHT*0.1)
+    textBoxFrame.grid(row=1, column=0, sticky="nsew")
+
+    # textBox is where we put our text to send
+    textBox = Text(textBoxFrame, height=2)
+    textBox.pack(expand=True, fill="both")
 
     # this handles window-size changing
     def change_window_size(event):
-        global WIDTH, HEIGHT
-        nonlocal textBoxWidth, sendButtonWidth, textBox, sendButton
-        WIDTH = event.width
-        HEIGHT = event.height
         
-        textBoxWidth = floor(WIDTH * 0.875 / characterLength)
-        sendButtonWidth = ceil(WIDTH * 0.125 / characterLength)
+        global WIDTH, HEIGHT
+        nonlocal textBox, sendButton, root
+        WIDTH = event.width
+        HEIGHT = event.height * 1.25
 
-        textBox.config(width=textBoxWidth)
-        textBox.place_forget()
-        textBox.place(anchor="sw", x=0, y=HEIGHT)
+        root.update_idletasks()
 
-        sendButton.config(width=sendButtonWidth)
-        sendButton.place_forget()
-        sendButton.place(anchor="sw", x=textBoxWidth*characterLength, y=HEIGHT)
+
 
 
     canvas.bind("<Configure>", change_window_size)
@@ -225,37 +217,39 @@ def main():
     # menu stuff
     def open_menu():
         global username, userColor
-        nonlocal root, menuTextSize, menuFont
+        nonlocal root
         chosenUserColor = userColor
         while root is None:
             pass
 
         
-        menuRoot = tkinter.Toplevel(root)
+        menuRoot = ttk.Toplevel(root)
         menuRoot.geometry("400x400")
 
-        usernameLabel = Label(menuRoot, text="Username:", font=menuFont)
-        usernameLabel.place(x=0, y=0, anchor='nw')
+        usernameLabel = Label(menuRoot, text="Username:")
+        usernameLabel.grid(row=0, column=0)
 
-        usernameEntry = Entry(menuRoot, font=menuFont, width=floor(200/menuCharacterLength))
+        usernameEntry = Entry(menuRoot, width=15)
         usernameEntry.insert("end", username)
-        usernameEntry.place(x=0, y=5+textSize, anchor='nw')
+        usernameEntry.grid(row=0, column=1)
 
-        userColorLabel = Label(menuRoot, text="This is your message color", font=menuFont, fg=userColor)
-        userColorLabel.place(x=0, y=textSize*2+30)
+        userColorLabel = Label(menuRoot, text="This is your message color", foreground=userColor)
+        userColorLabel.grid(row=1, column=0)
 
         def get_user_color():
-            nonlocal userColorLabel, chosenUserColor
-            chosenUserColor = colorchooser.askcolor(title="Choose your message color", initialcolor=userColor)[1]
+            nonlocal userColorLabel, chosenUserColor, menuRoot
+            chosenUserColorWindow = ColorChooserDialog(parent=menuRoot, title="Choose your message color", initialcolor=userColor)
+            chosenUserColorWindow.show()
+            chosenUserColor = chosenUserColorWindow.result[2]
             if chosenUserColor is None:
                 chosenUserColor = userColor
-            userColorLabel.config(fg=chosenUserColor, text="This will be your message color")
+            userColorLabel.config(foreground=chosenUserColor, text="This will be your message color")
         
-        userColorButton = Button(menuRoot, text="Change Color", padx=0, pady=0, command=get_user_color)
-        userColorButton.place(x=0, y=textSize*3+35, anchor='nw')
+        userColorButton = Button(menuRoot, text="Change Color", command=get_user_color)
+        userColorButton.grid(row=1, column=1)
 
         cancelButton = Button(menuRoot, text="Cancel", command=lambda:menuRoot.withdraw())
-        cancelButton.place(x=50, y=390, anchor='sw')
+        cancelButton.place(anchor='sw', x=5, y=395)
 
         def save_choices():
             global userColor, username
@@ -266,19 +260,20 @@ def main():
             menuRoot.withdraw()
 
         saveButton = Button(menuRoot, text="Save and Exit", command=save_choices)
-        saveButton.place(x=390, y=390, anchor='se')
+        saveButton.place(anchor="se", x=395, y=395)
+
         
 
-    menuButton = Button(root, text="Settings", font=mainFont, command=open_menu)
+    menuButton = Button(root, text="Settings", command=open_menu)
     menuButton.place(anchor='nw', x=0, y=0)
 
     # now for receiving messages!
     def process_message_list():
         global messageList, username, WIDTH, userColor
-        nonlocal canvas, root, textSize, mainFont, textBox
+        nonlocal canvas, root, textBox
 
         canvas.delete("all")
-        drawY = HEIGHT - (textBox.winfo_height())
+        drawY = HEIGHT
         
         for message in messageList:
             assert isinstance(message, Message)
@@ -292,7 +287,7 @@ def main():
 
             textToShow = f'{message.username}: {message.text}'
             
-            messageText = canvas.create_text(0, drawY, text=textToShow,  fill=messageColor, anchor="sw", font=mainFont, width=WIDTH)
+            messageText = canvas.create_text(0, drawY, text=textToShow,  fill=messageColor, anchor="sw", width=WIDTH)
             x1, y1, x2, y2 = canvas.bbox(messageText)
             drawY -= y2-y1
 
