@@ -5,3 +5,5 @@ Client.spec
 OpenForumClient.spec
 build
 dist
+messageLog.csv
+ServerLog.txt

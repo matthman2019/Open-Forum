@@ -5,7 +5,9 @@ import socket
 import json
 from Classes import *
 import queue
-import tkinter as tk
+import ttkbootstrap as ttk
+from ttkbootstrap.scrolled import ScrolledText
+import tkinter
 
 IP = "127.0.0.1"
 PORT = 50000
@@ -30,7 +32,7 @@ def write_messages_to_log():
         messageThreadEvent.wait()
 
         # write into the log
-        with open("log.csv", 'a') as file:
+        with open("messageLog.csv", 'a') as file:
             # for everything in the queue, write it to csv
             while messageQueue.qsize() > 0:
                 messageToWrite = messageQueue.get()
@@ -197,13 +199,66 @@ def manage_sockets():
             print('\n')
             print(f"Recieved by {address}")
 
+currentServerLogList = []
+currentServerLogString = ""
+serverLogWidget = None
+
+# yes, I could have used the logging module.
+# no, I wanted to do it myself.
+def log_message(message:str, priority:int=1):
+    global serverLogWidget, currentServerLogList, currentServerLogString
+    messageStarter = ''
+    if priority <= 1:
+        messageStarter = "DEBUG"
+    elif priority == 2:
+        messageStarter = "INFO"
+    elif priority == 3:
+        messageStarter = "WARNING"
+    elif priority == 4:
+        messageStarter = "ERROR"
+    elif priority == 5:
+        messageStarter = "CRITICAL"
+    elif priority >= 6:
+        messageStarter = "FATAL"
+
+    messageStarter += ': '
+
+    # now we do the logging
+    message = messageStarter + message
+    print(message)
+    currentServerLogList.append(message)
+    currentServerLogString += message + '\n'
+    if serverLogWidget is not None:
+        serverLogWidget.insert('end', message+'\n')
+
+    with open("ServerLog.txt", 'a') as file:
+        file.write(message + '\n')
+
+
+    
+
+
 # manages tkinter. Not meant to be run in a thread!
 def manage_tkinter():
-    global messageList, W_WIDTH, W_HEIGHT
-    root = tk.Tk()
+    global messageList, W_WIDTH, W_HEIGHT, serverLogWidget
+    root = ttk.Window(themename="cosmo")
     root.geometry("{}x{}".format(str(W_WIDTH), str(W_HEIGHT)))
     root.title("OpenForum Server")
 
+    serverLogText = ScrolledText(root, autohide=True)
+    serverLogText.insert("end", "")
+    serverLogWidget = serverLogText
+    serverLogText.grid(row=0, column=0, sticky="NSEW")
+
+    index = 0
+
+    def logLoop():
+        nonlocal index, root
+        index += 1
+        log_message("Test " + str(index) + "!", 1)
+        root.after(1000, logLoop)
+
+    root.after(1000, logLoop)
     root.mainloop()
 
 
