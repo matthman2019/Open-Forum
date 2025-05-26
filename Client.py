@@ -92,6 +92,8 @@ def recv_messages(comparisonType:str, maxMessages=-1):
                 break
             except:
                 # if we can't (List is unclosed), we keep receiving.
+                print("Long message from server!")
+                print(serverResponse)
                 doneRecieving = False
 
         
@@ -139,7 +141,7 @@ def refresh_handler():
 
 
 # start the refresh handler
-refreshThread = threading.Thread(target=refresh_handler)
+refreshThread = threading.Thread(target=refresh_handler, daemon=True)
 refreshThread.start()
 
 

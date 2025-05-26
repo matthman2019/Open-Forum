@@ -24,11 +24,21 @@ currentServerLogList = []
 currentServerLogString = ""
 serverLogWidget = None
 
+IPLastReceivedDict = {}
+usersOnline = 0
+THIRTYNANOSECONDS = 10**9 * 30
+
 
 messageList = []
 messageQueue = queue.Queue(maxsize=0)
 
 messageThreadEvent = threading.Event()
+
+def get_key_safe(dictionary:dict, key:any):
+    try:
+        return dictionary[key]
+    except KeyError:
+        return None
 
 # this function is meant to be run in a thread. It writes messages in the queue to the csv file.
 def write_messages_to_log():
@@ -50,6 +60,38 @@ def write_messages_to_log():
                     ))
 
         messageThreadEvent.clear()
+
+
+# yes, I could have used the logging module.
+# no, I wanted to do it myself.
+def log_message(message:str, priority:int=1):
+    global serverLogWidget, currentServerLogList, currentServerLogString
+    messageStarter = ''
+    if priority <= 1:
+        messageStarter = "DEBUG"
+    elif priority == 2:
+        messageStarter = "INFO"
+    elif priority == 3:
+        messageStarter = "WARNING"
+    elif priority == 4:
+        messageStarter = "ERROR"
+    elif priority == 5:
+        messageStarter = "CRITICAL"
+    elif priority >= 6:
+        messageStarter = "FATAL"
+
+    messageStarter += ': '
+
+    # now we do the logging
+    message = messageStarter + message
+    print(message)
+    currentServerLogList.append(message)
+    currentServerLogString += message + '\n'
+    if serverLogWidget is not None:
+        serverLogWidget.insert('end', message+'\n')
+
+    with open("Logs/ServerLog.txt", 'a') as file:
+        file.write(message + '\n')
 
 
 def send_server_event(text:str):
@@ -164,6 +206,8 @@ def handle_request_decoded(decodedDict : dict, decodedString:SyntaxWarning, addr
 
 # this runs in a thread and manages a socket from the client.
 def manage_client(clientSocket, address):
+    global IPLastReceivedDict, messageIDAssign, THIRTYNANOSECONDS
+    clientIP = address[0]
     try:
         clientRequestJSON = clientSocket.recv(20000).decode()
     except:
@@ -177,6 +221,31 @@ def manage_client(clientSocket, address):
         log_message("Client sent a bad request! Could not be JSON decoded! Ignoring message.", 2)
         print(clientRequestJSON)
         return
+    
+    # sends a welcome message.
+    # the messageID is a little funky. This could lead to problems!
+    def send_welcome_message():
+        nonlocal clientSocket, clientIP
+        global IPLastReceivedDict
+        log_message(f"Welcome message sent to {clientIP}", 2)
+        now = time.time_ns()
+        # this is a little long! It takes a welcome message, sandwiches it between brackets (to be a list), then encodes and sends it.
+        clientSocket.send(json.dumps([Message(f"Welcome! There are {str(usersOnline)} users online right now (Not including yourself.)", now, "SERVER", "", messageIDAssign).to_json()]).encode())
+        IPLastReceivedDict[clientIP] = now
+
+    # we see when they last sent us a message and we respond 
+    # if we haven't seen them before OR we haven't seen them in the last 30 seconds, send a welcome message.
+    # if we send a welcome message, we return. If we send something like this "[][]" ast will error.
+    clientLastSeen = get_key_safe(IPLastReceivedDict, clientIP)
+    if clientLastSeen is None:
+        send_welcome_message()
+        return
+    elif clientLastSeen + THIRTYNANOSECONDS < time.time_ns():
+        send_welcome_message()
+        return
+    else:
+        pass
+        
 
     stuffToSend = handle_request_decoded(clientRequest, clientRequestJSON, address)
 
@@ -185,6 +254,25 @@ def manage_client(clientSocket, address):
     
     clientSocket.close()
     return
+
+
+
+
+# these following functions mainly are used in threads.
+
+# this function is meant to be run in a thread! It checks which users are online and updates usersOnline.
+def manage_users_online():
+    global usersOnline, IPLastReceivedDict, THIRTYNANOSECONDS
+    while True:
+        usersOnline = 0
+        startTime = time.time_ns()
+        for clientIP, timeLastSeen in IPLastReceivedDict.items():
+            if timeLastSeen + THIRTYNANOSECONDS < startTime:
+                usersOnline += 1
+
+        time.sleep(1)
+
+
 
 # manages all sockets. Meant to be run in a thread.
 def manage_sockets():
@@ -204,37 +292,6 @@ def manage_sockets():
             log_message('\n', 1)
             log_message(f"Recieved by {address}", 2)
 
-
-# yes, I could have used the logging module.
-# no, I wanted to do it myself.
-def log_message(message:str, priority:int=1):
-    global serverLogWidget, currentServerLogList, currentServerLogString
-    messageStarter = ''
-    if priority <= 1:
-        messageStarter = "DEBUG"
-    elif priority == 2:
-        messageStarter = "INFO"
-    elif priority == 3:
-        messageStarter = "WARNING"
-    elif priority == 4:
-        messageStarter = "ERROR"
-    elif priority == 5:
-        messageStarter = "CRITICAL"
-    elif priority >= 6:
-        messageStarter = "FATAL"
-
-    messageStarter += ': '
-
-    # now we do the logging
-    message = messageStarter + message
-    print(message)
-    currentServerLogList.append(message)
-    currentServerLogString += message + '\n'
-    if serverLogWidget is not None:
-        serverLogWidget.insert('end', message+'\n')
-
-    with open("Logs/ServerLog.txt", 'a') as file:
-        file.write(message + '\n')
 
 
 # manages tkinter. Not meant to be run in a thread!
@@ -274,6 +331,7 @@ def manage_tkinter():
     
 
     root.mainloop()
+    
 
 
 
@@ -288,6 +346,11 @@ socketThread = threading.Thread(target=manage_sockets)
 socketThread.start()
 
 log_message("Server is up and running!", 2)
+
+usersOnlineThread = threading.Thread(target=manage_users_online)
+usersOnlineThread.start()
+
+log_message("Manage Users thread is running!")
 
 # log.csv writer setup
 logThread = threading.Thread(target=write_messages_to_log)
